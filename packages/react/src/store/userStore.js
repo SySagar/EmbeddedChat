@@ -27,10 +27,19 @@ const useUserStore = create((set) => ({
   setPassword: (password) => set(() => ({ password })),
   emailoruser: null,
   setEmailorUser: (emailoruser) => set(() => ({ emailoruser })),
-  showAvatar: false,
-  setShowAvatar: (showAvatar) => set(() => ({ showAvatar })),
-  roles: {},
+  roles: [],
   setRoles: (roles) => set((state) => ({ ...state, roles })),
+  userPinPermissions: {},
+  setUserPinPermissions: (userPinPermissions) =>
+    set((state) => ({ ...state, userPinPermissions })),
+  viewUserInfoPermissions: {},
+  setViewUserInfoPermissions: (viewUserInfoPermissions) =>
+    set((state) => ({ ...state, viewUserInfoPermissions })),
+  showCurrentUserInfo: false,
+  setShowCurrentUserInfo: (showCurrentUserInfo) =>
+    set(() => ({ showCurrentUserInfo })),
+  currentUser: {},
+  setCurrentUser: (currentUser) => set({ currentUser }),
 }));
 
 export default useUserStore;

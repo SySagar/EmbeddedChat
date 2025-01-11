@@ -7,13 +7,10 @@ export default {
 };
 
 // More on writing stories with args: https://storybook.js.org/docs/react/writing-stories/args
-export const Simple = {
+export const WithAuthToken = {
   args: {
     host: process.env.STORYBOOK_RC_HOST || 'http://localhost:3000',
-    roomId: 'GENERAL',
-    isClosable: true,
-    setClosableState: true,
-    moreOpts: true,
+    roomId: process.env.RC_ROOM_ID || 'GENERAL',
     channelName: 'general',
     anonymousMode: true,
     headerColor: 'white',
@@ -24,7 +21,7 @@ export const Simple = {
     auth: {
       flow: 'TOKEN',
       credentials: {
-        resume: 'AQGOHBtHBtCdgITotRHOCPVJoWEMMg3JETIeYfrqvhl',
+        resume: 'resume_token',
       },
     },
   },

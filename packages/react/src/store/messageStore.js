@@ -4,9 +4,11 @@ import { upsertMessage } from '../lib/messageListHelpers';
 
 const useMessageStore = create((set, get) => ({
   messages: [],
+  isMessageLoaded: false,
   threadMessages: [],
   filtered: false,
   editMessage: {},
+  quoteMessage: [],
   messageToReport: NaN,
   showReportMessage: false,
   isRecordingMessage: false,
@@ -14,7 +16,11 @@ const useMessageStore = create((set, get) => ({
   threadMainMessage: null,
   headerTitle: null,
   setFilter: (filter) => set(() => ({ filtered: filter })),
-  setMessages: (messages) => set(() => ({ messages })),
+  setMessages: (messages) =>
+    set(() => ({
+      messages,
+      isMessageLoaded: true,
+    })),
   upsertMessage: (message, enableThreads = false) => {
     if (message.tmid && enableThreads) {
       if (get().threadMainMessage?._id === message.tmid) {
@@ -65,6 +71,22 @@ const useMessageStore = create((set, get) => ({
     }
   },
   setEditMessage: (editMessage) => set(() => ({ editMessage })),
+  editMessagePermissions: {},
+  setEditMessagePermissions: (editMessagePermissions) =>
+    set((state) => ({ ...state, editMessagePermissions })),
+  addQuoteMessage: (quoteMessage) =>
+    set((state) => {
+      const updatedQuoteMessages = state.quoteMessage.filter(
+        (msg) => msg._id !== quoteMessage._id
+      );
+      return { quoteMessage: [...updatedQuoteMessages, quoteMessage] };
+    }),
+  removeQuoteMessage: (quoteMessage) =>
+    set((state) => ({
+      quoteMessage: state.quoteMessage.filter((i) => i !== quoteMessage),
+    })),
+
+  clearQuoteMessages: () => set({ quoteMessage: [] }),
   setMessageToReport: (messageId) =>
     set(() => ({ messageToReport: messageId })),
   toggleShowReportMessage: () => {
