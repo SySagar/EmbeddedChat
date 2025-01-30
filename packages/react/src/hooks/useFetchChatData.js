@@ -1,14 +1,28 @@
 import { useCallback, useContext } from 'react';
 import RCContext from '../context/RCInstance';
-import { useUserStore, useChannelStore, useMessageStore } from '../store';
+import {
+  useUserStore,
+  useChannelStore,
+  useMemberStore,
+  useMessageStore,
+  useStarredMessageStore,
+} from '../store';
 
 const useFetchChatData = (showRoles) => {
   const { RCInstance, ECOptions } = useContext(RCContext);
-  const setRoles = useUserStore((state) => state.setRoles);
+  const setMemberRoles = useMemberStore((state) => state.setMemberRoles);
   const isChannelPrivate = useChannelStore((state) => state.isChannelPrivate);
   const setMessages = useMessageStore((state) => state.setMessages);
+  const setMessagesOffset = useMessageStore((state) => state.setMessagesOffset);
+  const setAdmins = useMemberStore((state) => state.setAdmins);
+  const setStarredMessages = useStarredMessageStore(
+    (state) => state.setStarredMessages
+  );
   const isUserAuthenticated = useUserStore(
     (state) => state.isUserAuthenticated
+  );
+  const setViewUserInfoPermissions = useUserStore(
+    (state) => state.setViewUserInfoPermissions
   );
 
   const getMessagesAndRoles = useCallback(
@@ -18,7 +32,7 @@ const useFetchChatData = (showRoles) => {
           return;
         }
 
-        const { messages } = await RCInstance.getMessages(
+        const { messages, count } = await RCInstance.getMessages(
           anonymousMode,
           ECOptions?.enableThreads
             ? {
@@ -34,17 +48,21 @@ const useFetchChatData = (showRoles) => {
 
         if (messages) {
           setMessages(messages.filter((message) => message._hidden !== true));
+          setMessagesOffset(count);
         }
 
         if (!isUserAuthenticated) {
-          // fetch roles only when the user is authenticated
           return;
         }
 
         if (showRoles) {
           const { roles } = await RCInstance.getChannelRoles(isChannelPrivate);
+          const fetchedRoles = await RCInstance.getUserRoles();
+          const fetchedAdmins = fetchedRoles?.result;
 
-          // convert roles array from the API into an object for better search
+          const adminUsernames = fetchedAdmins?.map((user) => user.username);
+          setAdmins(adminUsernames);
+
           const rolesObj =
             roles?.length > 0
               ? roles.reduce(
@@ -53,8 +71,11 @@ const useFetchChatData = (showRoles) => {
                 )
               : {};
 
-          setRoles(rolesObj);
+          setMemberRoles(rolesObj);
         }
+
+        const permissions = await RCInstance.permissionInfo();
+        setViewUserInfoPermissions(permissions.update[70]);
       } catch (e) {
         console.error(e);
       }
@@ -63,14 +84,32 @@ const useFetchChatData = (showRoles) => {
       isUserAuthenticated,
       RCInstance,
       ECOptions?.enableThreads,
+      isChannelPrivate,
       showRoles,
       setMessages,
-      setRoles,
-      isChannelPrivate,
+      setAdmins,
+      setMemberRoles,
     ]
   );
 
-  return getMessagesAndRoles;
+  const getStarredMessages = useCallback(
+    async (anonymousMode) => {
+      if (isUserAuthenticated) {
+        try {
+          if (!isUserAuthenticated && !anonymousMode) {
+            return;
+          }
+          const { messages } = await RCInstance.getStarredMessages();
+          setStarredMessages(messages);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    },
+    [isUserAuthenticated, RCInstance, setStarredMessages]
+  );
+
+  return { getMessagesAndRoles, getStarredMessages };
 };
 
 export default useFetchChatData;

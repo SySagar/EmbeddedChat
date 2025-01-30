@@ -3,8 +3,11 @@ import { create } from 'zustand';
 const useMemberStore = create((set) => ({
   members: [],
   showMembers: false,
-  toggleShowMembers: () =>
-    set((state) => ({ showMembers: !state.showMembers })),
+  setShowMembers: (showMembers) => set(() => ({ showMembers })),
+  memberRoles: {},
+  admins: [],
+  setMemberRoles: (memberRoles) => set((state) => ({ ...state, memberRoles })),
+  setAdmins: (admins) => set(() => ({ admins })),
   setMembersHandler: (memberList) => set(() => ({ members: memberList })),
 }));
 

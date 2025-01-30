@@ -1,5 +1,6 @@
 import { Rocketchat } from "@rocket.chat/sdk";
 import cloneArray from "./cloneArray";
+import { ROCKETCHAT_APP_ID } from "./utils/constants";
 import {
   IRocketChatAuthOptions,
   RocketChatAuth,
@@ -23,7 +24,7 @@ export default class EmbeddedChatApi {
   constructor(
     host: string,
     rid: string,
-    { getToken, saveToken, deleteToken, autoLogin }: IRocketChatAuthOptions
+    { getToken, saveToken, deleteToken }: IRocketChatAuthOptions
   ) {
     this.host = host;
     this.rid = rid;
@@ -44,7 +45,6 @@ export default class EmbeddedChatApi {
       deleteToken,
       getToken,
       saveToken,
-      autoLogin,
     });
   }
 
@@ -121,12 +121,12 @@ export default class EmbeddedChatApi {
     let credentials;
     if (!code) {
       credentials = credentials = {
-        user: userOrEmail,
+        user: userOrEmail.trim(),
         password,
       };
     } else {
       credentials = {
-        user: userOrEmail,
+        user: userOrEmail.trim(),
         password,
         code,
       };
@@ -143,6 +143,33 @@ export default class EmbeddedChatApi {
         return { error: authErrorRes?.error };
       }
       console.error(error);
+    }
+  }
+
+  async autoLogin(auth: {
+    flow: "PASSWORD" | "OAUTH" | "TOKEN";
+    credentials: any;
+  }) {
+    try {
+      if (!auth || !auth.flow) {
+        return;
+      }
+      switch (auth.flow) {
+        case "PASSWORD":
+        case "OAUTH":
+          await this.auth.load();
+          break;
+        case "TOKEN":
+          if (!auth.credentials) {
+            return;
+          }
+          await this.auth.loginWithOAuthServiceToken(auth.credentials);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error("Auto-login failed:", error);
     }
   }
 
@@ -353,6 +380,21 @@ export default class EmbeddedChatApi {
     );
   }
 
+  async getRCAppInfo() {
+    try {
+      const response = await fetch(
+        `${this.host}/api/apps/public/${ROCKETCHAT_APP_ID}/info`
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+      return await response.json();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async updateUserNameThroughSuggestion(userid: string) {
     try {
       const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
@@ -510,16 +552,65 @@ export default class EmbeddedChatApi {
     }
   }
 
+  async getOlderMessages(
+    anonymousMode = false,
+    options: {
+      query?: object | undefined;
+      field?: object | undefined;
+      offset?: number;
+    } = {
+      query: undefined,
+      field: undefined,
+      offset: 50,
+    },
+    isChannelPrivate = false
+  ) {
+    const roomType = isChannelPrivate ? "groups" : "channels";
+    const endp = anonymousMode ? "anonymousread" : "messages";
+    const query = options?.query
+      ? `&query=${JSON.stringify(options.query)}`
+      : "";
+    const field = options?.field
+      ? `&field=${JSON.stringify(options.field)}`
+      : "";
+    const offset = options?.offset ? options.offset : 0;
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const messages = await fetch(
+        `${this.host}/api/v1/${roomType}.${endp}?roomId=${this.rid}${query}${field}&offset=${offset}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+            "X-User-Id": userId,
+          },
+          method: "GET",
+        }
+      );
+      return await messages.json();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   async getThreadMessages(tmid: string, isChannelPrivate = false) {
-    return this.getMessages(
-      false,
-      {
-        query: {
-          tmid,
-        },
-      },
-      isChannelPrivate
-    );
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const messages = await fetch(
+        `${this.host}/api/v1/chat.getThreadMessages?roomId=${this.rid}&tmid=${tmid}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+            "X-User-Id": userId,
+          },
+          method: "GET",
+        }
+      );
+      return await messages.json();
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   async getChannelRoles(isChannelPrivate = false) {
@@ -540,6 +631,61 @@ export default class EmbeddedChatApi {
       return await roles.json();
     } catch (err) {
       console.log(err);
+    }
+  }
+
+  async getUsersInRole(role: string) {
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const roles = await fetch(
+        `${this.host}/api/v1/roles.getUsersInRole?role=${role}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+            "X-User-Id": userId,
+          },
+          method: "GET",
+        }
+      );
+      return await roles.json();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async getUserRoles() {
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const response = await fetch(
+        `${this.host}/api/v1/method.call/getUserRoles`,
+        {
+          body: JSON.stringify({
+            message: JSON.stringify({
+              msg: "method",
+              id: null,
+              method: "getUserRoles",
+              params: [],
+            }),
+          }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+            "X-User-Id": userId,
+          },
+          method: "POST",
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success && result.message) {
+        const parsedMessage = JSON.parse(result.message);
+        return parsedMessage;
+      }
+      return null;
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -627,12 +773,33 @@ export default class EmbeddedChatApi {
     }
   }
 
-  async getAllFiles(isChannelPrivate = false) {
+  async getAllFiles(isChannelPrivate = false, typeGroup: string) {
     const roomType = isChannelPrivate ? "groups" : "channels";
     try {
       const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const url =
+        typeGroup === ""
+          ? `${this.host}/api/v1/${roomType}.files?roomId=${this.rid}`
+          : `${this.host}/api/v1/${roomType}.files?roomId=${this.rid}&typeGroup=${typeGroup}`;
+      const response = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": authToken,
+          "X-User-Id": userId,
+        },
+        method: "GET",
+      });
+      return await response.json();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async getAllImages() {
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
       const response = await fetch(
-        `${this.host}/api/v1/${roomType}.files?roomId=${this.rid}`,
+        `${this.host}/api/v1/rooms.images?roomId=${this.rid}`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -924,22 +1091,32 @@ export default class EmbeddedChatApi {
       console.error(err);
     }
   }
-  async triggerBlockAction({
-    type,
-    actionId,
-    appId,
-    rid,
-    mid,
-    viewId,
-    container,
-    ...rest
-  }: any) {
+
+  async getMessageLimit() {
+    try {
+      const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+      const response = await fetch(
+        `${this.host}/api/v1/settings/Message_MaxAllowedSize`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+            "X-User-Id": userId,
+          },
+          method: "GET",
+        }
+      );
+      return await response.json();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async handleUiKitInteraction(appId: string, userInteraction: any) {
     try {
       const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
 
       const triggerId = Math.random().toString(32).slice(2, 16);
-
-      const payload = rest.payload || rest;
 
       const response = await fetch(
         `${this.host}/api/apps/ui.interaction/${appId}`,
@@ -951,20 +1128,15 @@ export default class EmbeddedChatApi {
           },
           method: "POST",
           body: JSON.stringify({
-            type: "blockAction",
-            actionId,
-            payload,
-            container,
-            mid,
-            rid,
             triggerId,
-            viewId,
+            ...userInteraction,
           }),
         }
       );
-      const data = await response.json();
-      this.onActionTriggeredCallbacks.map((cb) => cb(data));
-      return data;
+
+      const interaction = await response.json();
+      this.onActionTriggeredCallbacks.forEach((cb) => cb(interaction));
+      return interaction;
     } catch (e) {
       console.error(e);
     }
@@ -1001,6 +1173,57 @@ export default class EmbeddedChatApi {
       }),
     });
     const data = await response.json();
+    return data;
+  }
+
+  async getUserStatus(reqUserId: string) {
+    const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+    const response = await fetch(
+      `${this.host}/api/v1/users.getStatus?userId=${reqUserId}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": authToken,
+          "X-User-Id": userId,
+        },
+      }
+    );
+    const data = response.json();
+    return data;
+  }
+
+  async userInfo(reqUserId: string) {
+    const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+    const response = await fetch(
+      `${this.host}/api/v1/users.info?userId=${reqUserId}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": authToken,
+          "X-User-Id": userId,
+        },
+      }
+    );
+    const data = response.json();
+    return data;
+  }
+
+  async userData(username: string) {
+    const { userId, authToken } = (await this.auth.getCurrentUser()) || {};
+    const response = await fetch(
+      `${this.host}/api/v1/users.info?username=${username}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": authToken,
+          "X-User-Id": userId,
+        },
+      }
+    );
+    const data = response.json();
     return data;
   }
 }

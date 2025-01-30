@@ -4,7 +4,8 @@
   "description": "Integrate RocketChat into any React based web app using this extensible, robust component library",
   "packageManager": "yarn@3.6.4",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "!packages/docs"
   ],
   "scripts": {
     "preinstall": "node scripts/node-check.js",
@@ -13,12 +14,17 @@
     "lint": "lerna run lint",
     "build:storybook": "lerna run build-storybook",
     "format": "lerna run format",
-    "format:check": "lerna run format:check"
+    "format:check": "lerna run format:check",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "^2.26.2",
     "esbuild": "^0.17.19",
+    "husky": "^9.0.11",
     "lerna": "^6.6.2",
     "typescript": "^5.1.3"
+  },
+  "dependencies": {
+    "dompurify": "^3.1.6"
   }
 }

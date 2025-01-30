@@ -10,16 +10,13 @@ export default {
 export const WithOAuth = {
   args: {
     host: process.env.STORYBOOK_RC_HOST || 'http://localhost:3000',
-    roomId: 'GENERAL',
-    isClosable: true,
-    setClosableState: true,
-    moreOpts: true,
+    roomId: process.env.RC_ROOM_ID || 'GENERAL',
     channelName: 'general',
     anonymousMode: true,
     headerColor: 'white',
     toastBarPosition: 'bottom right',
     showRoles: true,
-    showAvatar: false,
+    showAvatar: true,
     enableThreads: true,
     auth: {
       flow: 'OAUTH',
