@@ -1,18 +1,20 @@
 import { useContext } from 'react';
+import { useToastBarDispatch } from '@embeddedchat/ui-elements';
 import RCContext from '../context/RCInstance';
 import {
-  useToastStore,
   useUserStore,
   totpModalStore,
-  loginModalStore,
+  useLoginStore,
+  useMessageStore,
 } from '../store';
-import { useToastBarDispatch } from './useToastBarDispatch';
 
 export const useRCAuth = () => {
   const { RCInstance } = useContext(RCContext);
-  const setIsModalOpen = totpModalStore((state) => state.setIsModalOpen);
+  const setIsTotpModalOpen = totpModalStore(
+    (state) => state.setIsTotpModalOpen
+  );
   const setUserAvatarUrl = useUserStore((state) => state.setUserAvatarUrl);
-  const setIsLoginModalOpen = loginModalStore(
+  const setIsLoginModalOpen = useLoginStore(
     (state) => state.setIsLoginModalOpen
   );
   const setAuthenticatedUserUsername = useUserStore(
@@ -23,35 +25,38 @@ export const useRCAuth = () => {
   );
   const setPassword = useUserStore((state) => state.setPassword);
   const setEmailorUser = useUserStore((state) => state.setEmailorUser);
-  const toastPosition = useToastStore((state) => state.position);
+  const setUserPinPermissions = useUserStore(
+    (state) => state.setUserPinPermissions
+  );
+  const setEditMessagePermissions = useMessageStore(
+    (state) => state.setEditMessagePermissions
+  );
   const dispatchToastMessage = useToastBarDispatch();
 
   const handleLogin = async (userOrEmail, password, code) => {
     try {
       const res = await RCInstance.login(userOrEmail, password, code);
+      const permissions = await RCInstance.permissionInfo();
       if (res.error === 'Unauthorized' || res.error === 403) {
         dispatchToastMessage({
           type: 'error',
           message:
             'Invalid username or password. Please check your credentials and try again',
-          position: toastPosition,
         });
       } else {
         if (res.error === 'totp-required') {
           setPassword(password);
           setEmailorUser(userOrEmail);
           setIsLoginModalOpen(false);
-          setIsModalOpen(true);
+          setIsTotpModalOpen(true);
           dispatchToastMessage({
             type: 'info',
             message: 'Please Open your authentication app and enter the code.',
-            position: toastPosition,
           });
         } else if (res.error === 'totp-invalid') {
           dispatchToastMessage({
             type: 'error',
             message: 'Invalid TOTP Time-based One-time Password.',
-            position: toastPosition,
           });
         }
 
@@ -60,13 +65,14 @@ export const useRCAuth = () => {
           setUserAvatarUrl(res.me.avatarUrl);
           setAuthenticatedUserUsername(res.me.username);
           setIsUserAuthenticated(true);
-          setIsModalOpen(false);
+          setIsTotpModalOpen(false);
           setEmailorUser(null);
           setPassword(null);
+          setUserPinPermissions(permissions.update[150]);
+          setEditMessagePermissions(permissions.update[28]);
           dispatchToastMessage({
             type: 'success',
             message: 'Successfully logged in',
-            position: toastPosition,
           });
         }
       }

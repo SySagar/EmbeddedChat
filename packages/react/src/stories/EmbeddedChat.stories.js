@@ -2,7 +2,7 @@ import { EmbeddedChat } from '..';
 
 // More on how to set up stories at: https://storybook.js.org/docs/react/writing-stories/introduction
 export default {
-  title: 'EmbeddedChat/Managed',
+  title: 'EmbeddedChat/Simple',
   component: EmbeddedChat,
 };
 
@@ -10,19 +10,17 @@ export default {
 export const Simple = {
   args: {
     host: process.env.STORYBOOK_RC_HOST || 'http://localhost:3000',
-    roomId: 'GENERAL',
-    isClosable: true,
-    setClosableState: true,
-    moreOpts: true,
+    roomId: process.env.RC_ROOM_ID || 'GENERAL',
     channelName: 'general',
-    anonymousMode: true,
+    anonymousMode: false,
     headerColor: 'white',
     toastBarPosition: 'bottom right',
     showRoles: true,
-    showAvatar: true,
     enableThreads: true,
+    hideHeader: false,
     auth: {
       flow: 'PASSWORD',
     },
+    dark: false,
   },
 };

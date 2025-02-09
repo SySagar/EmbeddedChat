@@ -4,9 +4,12 @@ import { upsertMessage } from '../lib/messageListHelpers';
 
 const useMessageStore = create((set, get) => ({
   messages: [],
+  isMessageLoaded: false,
   threadMessages: [],
   filtered: false,
   editMessage: {},
+  messagesOffset: 0,
+  quoteMessage: [],
   messageToReport: NaN,
   showReportMessage: false,
   isRecordingMessage: false,
@@ -14,7 +17,19 @@ const useMessageStore = create((set, get) => ({
   threadMainMessage: null,
   headerTitle: null,
   setFilter: (filter) => set(() => ({ filtered: filter })),
-  setMessages: (messages) => set(() => ({ messages })),
+  setMessages: (newMessages, append = false) =>
+    set((state) => {
+      const allMessages = append
+        ? [...state.messages, ...newMessages]
+        : newMessages;
+      const uniqueMessages = Array.from(
+        new Map(allMessages.map((msg) => [msg._id, msg])).values()
+      );
+      return {
+        messages: uniqueMessages,
+        isMessageLoaded: true,
+      };
+    }),
   upsertMessage: (message, enableThreads = false) => {
     if (message.tmid && enableThreads) {
       if (get().threadMainMessage?._id === message.tmid) {
@@ -65,6 +80,23 @@ const useMessageStore = create((set, get) => ({
     }
   },
   setEditMessage: (editMessage) => set(() => ({ editMessage })),
+  setMessagesOffset: (newOffset) => set(() => ({ messagesOffset: newOffset })),
+  editMessagePermissions: {},
+  setEditMessagePermissions: (editMessagePermissions) =>
+    set((state) => ({ ...state, editMessagePermissions })),
+  addQuoteMessage: (quoteMessage) =>
+    set((state) => {
+      const updatedQuoteMessages = state.quoteMessage.filter(
+        (msg) => msg._id !== quoteMessage._id
+      );
+      return { quoteMessage: [...updatedQuoteMessages, quoteMessage] };
+    }),
+  removeQuoteMessage: (quoteMessage) =>
+    set((state) => ({
+      quoteMessage: state.quoteMessage.filter((i) => i !== quoteMessage),
+    })),
+
+  clearQuoteMessages: () => set({ quoteMessage: [] }),
   setMessageToReport: (messageId) =>
     set(() => ({ messageToReport: messageId })),
   toggleShowReportMessage: () => {
